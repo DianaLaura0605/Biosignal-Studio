@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BioSignal Studio — Plataforma de Señales Biomédicas</title>
+
+  <!-- Google Fonts: IBM Plex Mono (monospace técnico) + Space Grotesk (display) -->
+  <!-- Nota: en producción usar CDN con SRI hashes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=DM+Serif+Display&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ══════════════════════════════════════════════════════════════
+       DESIGN TOKENS — Sistema de diseño BioSignal Studio
+       Inspirado en la estética de interfaces médicas profesionales
+       (Mindray, Philips IntelliVue, GE CARESCAPE)
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+      /* Paleta principal: negro profundo + verde biomédico + cyan eléctrico */
+      --bg-base:      #08090d;
+      --bg-surface:   #0d0f15;
+      --bg-elevated:  #131720;
+      --bg-card:      #181d28;
+      --bg-hover:     #1e2535;
+
+      --accent-green:  #00e5a0;   /* Verde EMG — señal activa */
+      --accent-cyan:   #00b4d8;   /* Cyan ECG */
+      --accent-violet: #7c6af5;   /* Violeta EEG */
+      --accent-amber:  #f59e0b;   /* Amber — alertas, landmarks */
+      --accent-red:    #ef4444;   /* Rojo — error, pico */
+
+      --text-primary:   #e8eaf0;
+      --text-secondary: #8892aa;
+      --text-muted:     #4a5268;
+      --text-accent:    #00e5a0;
+
+      --border-subtle:  rgba(255,255,255,0.05);
+      --border-dim:     rgba(255,255,255,0.10);
+      --border-accent:  rgba(0,229,160,0.30);
+
+      --font-sans: 'Outfit', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', 'Cascadia Code', monospace;
+      --font-serif: 'DM Serif Display', serif;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+
+      --shadow-glow-green: 0 0 20px rgba(0,229,160,0.15);
+      --shadow-glow-cyan:  0 0 20px rgba(0,180,216,0.15);
+      --shadow-card: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    /* ── Reset & Base ────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* ── Scrollbar personalizado ─────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-surface); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
+
+    /* ══════════════════════════════════════════════════════════════
+       GRID LINES — Efecto de cuadrícula biomédica de fondo
+       ══════════════════════════════════════════════════════════════ */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       HEADER / NAVBAR
+       ══════════════════════════════════════════════════════════════ */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 60px;
+      background: rgba(8,9,13,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-green);
+      letter-spacing: 0.05em;
+    }
+
+    .nav-logo .pulse-dot {
+      width: 8px; height: 8px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0,229,160,0.4); }
+      50% { opacity: 0.7; transform: scale(0.9); box-shadow: 0 0 0 6px rgba(0,229,160,0); }
+    }
+
+    .nav-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .status-indicator {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-red);
+      transition: background 0.3s;
+    }
+    .status-indicator.connected { background: var(--accent-green); }
+
+    .nav-actions { display: flex; gap: 8px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: var(--border-dim);
+    }
+    .btn-ghost:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+    .btn-primary {
+      background: var(--accent-green);
+      color: #000;
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: #00ffb3;
+      box-shadow: var(--shadow-glow-green);
+    }
+    .btn-danger {
+      background: transparent;
+      color: var(--accent-red);
+      border-color: rgba(239,68,68,0.3);
+    }
+    .btn-danger:hover {
+      background: rgba(239,68,68,0.1);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       MAIN LAYOUT — Grid de 3 columnas
+       ══════════════════════════════════════════════════════════════ */
+    .app-layout {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 220px 1fr 280px;
+      grid-template-rows: auto 1fr;
+      min-height: calc(100vh - 60px);
+    }
+
+    /* ── Sidebar izquierdo ───────────────────────────────────────── */
+    .sidebar-left {
+      grid-row: 1 / 3;
+      border-right: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .sidebar-section-title {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      padding: 0 0.5rem;
+    }
+
+    .signal-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .signal-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    .signal-btn:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+    .signal-btn.active {
+      background: var(--bg-card);
+      border-color: var(--border-accent);
+      color: var(--accent-green);
+    }
+
+    .signal-icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+    .icon-emg { background: rgba(0,229,160,0.15); color: var(--accent-green); }
+    .icon-ecg { background: rgba(0,180,216,0.15); color: var(--accent-cyan); }
+    .icon-eeg { background: rgba(124,106,245,0.15); color: var(--accent-violet); }
+
+    .signal-info { flex: 1; }
+    .signal-name { font-weight: 500; display: block; }
+    .signal-hz { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
+
+    /* ── Panel principal (centro) ────────────────────────────────── */
+    .main-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* Header del panel */
+    .panel-header {
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-family: var(--font-serif);
+      font-size: 1.3rem;
+      color: var(--text-primary);
+    }
+    .panel-subtitle {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       OSCILLOSCOPE — El corazón visual de la app
+       ══════════════════════════════════════════════════════════════ */
+    .oscilloscope-wrapper {
+      padding: 1.5rem 1.75rem 1rem;
+    }
+
+    .oscilloscope {
+      position: relative;
+      background: #05060a;
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    /* Grid de cuadrícula tipo ECG */
+    .oscilloscope::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,0.05) 1px, transparent 1px),
+        linear-gradient(rgba(0,229,160,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,0.025) 1px, transparent 1px);
+      background-size: 80px 50px, 80px 50px, 20px 12.5px, 20px 12.5px;
+      pointer-events: none;
+    }
+
+    #signal-canvas {
+      display: block;
+      width: 100%;
+      height: 220px;
+    }
+
+    .osc-overlay {
+      position: absolute;
+      bottom: 10px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .osc-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: rgba(0,229,160,0.6);
+      letter-spacing: 0.05em;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       METRICS ROW
+       ══════════════════════════════════════════════════════════════ */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      padding: 0 1.75rem 1.5rem;
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .metric-card:hover { border-color: var(--border-dim); }
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--metric-color, var(--accent-green));
+    }
+
+    .metric-label {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--metric-color, var(--accent-green));
+      line-height: 1;
+    }
+    .metric-unit {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SPECTRUM ANALYZER — FFT display
+       ══════════════════════════════════════════════════════════════ */
+    .spectrum-section {
+      padding: 0 1.75rem 1.5rem;
+    }
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    #spectrum-canvas {
+      display: block;
+      width: 100%;
+      height: 100px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SIDEBAR DERECHO — Clasificador de gestos + stats
+       ══════════════════════════════════════════════════════════════ */
+    .sidebar-right {
+      border-left: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      overflow-y: auto;
+    }
+
+    /* Gesture classifier display */
+    .gesture-display {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+    }
+
+    .gesture-title {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    /* Mano 3D SVG */
+    .hand-svg-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .gesture-name-display {
+      font-family: var(--font-serif);
+      font-size: 1.1rem;
+      color: var(--accent-green);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .confidence-bar-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .confidence-bar-bg {
+      flex: 1;
+      height: 4px;
+      background: var(--bg-elevated);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .confidence-bar-fill {
+      height: 100%;
+      background: var(--accent-green);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .confidence-pct {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--accent-green);
+      width: 35px;
+      text-align: right;
+    }
+
+    /* Barras de probabilidad por gesto */
+    .gesture-probabilities {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 1rem;
+    }
+
+    .gesture-prob-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .gesture-prob-label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-secondary);
+      width: 80px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gesture-prob-bar {
+      flex: 1;
+      height: 3px;
+      background: var(--bg-elevated);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .gesture-prob-fill {
+      height: 100%;
+      background: var(--accent-green);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+      opacity: 0.6;
+    }
+    .gesture-prob-fill.active { opacity: 1; }
+
+    /* EEG Band power display */
+    .band-display {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+    }
+
+    .band-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .band-row:last-child { border-bottom: none; }
+    .band-name {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      width: 40px;
+      color: var(--text-secondary);
+    }
+    .band-greek {
+      font-family: var(--font-serif);
+      font-size: 0.9rem;
+      width: 20px;
+      text-align: center;
+    }
+    .band-bar { flex: 1; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
+    .band-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+
+    /* Log / eventos en tiempo real */
+    .event-log {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1rem;
+    }
+    .event-log-title {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .log-entries {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .log-entry {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      padding: 3px 0;
+    }
+    .log-entry .log-time { color: var(--accent-green); margin-right: 6px; }
+    .log-entry.event-warn .log-time { color: var(--accent-amber); }
+    .log-entry.event-error .log-time { color: var(--accent-red); }
+
+    /* ══════════════════════════════════════════════════════════════
+       BOTTOM INFO BAR
+       ══════════════════════════════════════════════════════════════ */
+    .info-bar {
+      grid-column: 2 / 3;
+      border-top: 1px solid var(--border-subtle);
+      padding: 8px 1.75rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      background: var(--bg-surface);
+    }
+    .info-chip {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .info-chip span { color: var(--text-secondary); }
+
+    /* ══════════════════════════════════════════════════════════════
+       CONTROLS BAR
+       ══════════════════════════════════════════════════════════════ */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       ANIMATIONS
+       ══════════════════════════════════════════════════════════════ */
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in { animation: fade-in 0.4s ease both; }
+
+    @keyframes scan-line {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       RECORDING BADGE
+       ══════════════════════════════════════════════════════════════ */
+    .rec-badge {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent-red);
+    }
+    .rec-badge.active { display: flex; }
+    .rec-dot {
+      width: 6px; height: 6px;
+      background: var(--accent-red);
+      border-radius: 50%;
+      animation: pulse-dot 1s infinite;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       RESPONSIVE — tablet
+       ══════════════════════════════════════════════════════════════ */
+    @media (max-width: 1100px) {
+      .app-layout { grid-template-columns: 180px 1fr; }
+      .sidebar-right { display: none; }
+      .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .app-layout { grid-template-columns: 1fr; }
+      .sidebar-left { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ══════════════════════════════════════════════════════════
+       NAVBAR
+       ══════════════════════════════════════════════════════════ -->
+  <nav class="navbar">
+    <div class="nav-logo">
+      <div class="pulse-dot"></div>
+      BIOSIGNAL<span style="color:var(--text-muted);font-weight:300">/</span>STUDIO
+    </div>
+
+    <div class="nav-status">
+      <div class="status-indicator" id="ws-indicator"></div>
+      <span id="ws-label">Desconectado</span>
+    </div>
+
+    <div class="nav-actions">
+      <div class="rec-badge" id="rec-badge">
+        <div class="rec-dot"></div>
+        REC
+      </div>
+      <button class="btn btn-ghost" id="btn-record" onclick="toggleRecord()">⏺ Grabar</button>
+      <button class="btn btn-primary" id="btn-stream" onclick="toggleStream()">▶ Iniciar stream</button>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════════════
+       APP LAYOUT
+       ══════════════════════════════════════════════════════════ -->
+  <div class="app-layout">
+
+    <!-- ── Sidebar izquierdo: selector de señal ─────────────── -->
+    <aside class="sidebar-left animate-in">
+      <div>
+        <p class="sidebar-section-title">Tipo de señal</p>
+        <div class="signal-selector" style="margin-top:10px">
+          <button class="signal-btn active" id="btn-emg" onclick="selectSignal('emg')">
+            <span class="signal-icon icon-emg">EMG</span>
+            <span class="signal-info">
+              <span class="signal-name">Electromiografía</span>
+              <span class="signal-hz">2000 Hz · ±5 mV</span>
+            </span>
+          </button>
+          <button class="signal-btn" id="btn-ecg" onclick="selectSignal('ecg')">
+            <span class="signal-icon icon-ecg">ECG</span>
+            <span class="signal-info">
+              <span class="signal-name">Electrocardiog.</span>
+              <span class="signal-hz">500 Hz · ±2 mV</span>
+            </span>
+          </button>
+          <button class="signal-btn" id="btn-eeg" onclick="selectSignal('eeg')">
+            <span class="signal-icon icon-eeg">EEG</span>
+            <span class="signal-info">
+              <span class="signal-name">Electroencefalog.</span>
+              <span class="signal-hz">256 Hz · ±0.1 mV</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <p class="sidebar-section-title">Filtros DSP</p>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+            <input type="checkbox" checked id="filter-bandpass" onchange="updateFilter()" style="accent-color:var(--accent-green)">
+            Pasa-banda Butterworth
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+            <input type="checkbox" checked id="filter-notch" onchange="updateFilter()" style="accent-color:var(--accent-green)">
+            Notch 60 Hz
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+            <input type="checkbox" id="filter-raw" onchange="updateFilter()" style="accent-color:var(--accent-amber)">
+            Mostrar señal cruda
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <p class="sidebar-section-title">Ganancia</p>
+        <div style="margin-top:10px;">
+          <input type="range" id="gain-slider" min="0.5" max="10" step="0.5" value="1"
+            style="width:100%;accent-color:var(--accent-green)"
+            oninput="document.getElementById('gain-val').textContent = this.value + 'x'">
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);margin-top:4px">
+            <span>0.5x</span>
+            <span id="gain-val">1x</span>
+            <span>10x</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:auto;">
+        <p class="sidebar-section-title">Velocidad de barrido</p>
+        <div style="margin-top:10px;">
+          <select id="sweep-speed" onchange="updateSweep()"
+            style="width:100%;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-dim);border-radius:var(--radius-sm);padding:6px 8px;font-family:var(--font-mono);font-size:0.78rem;">
+            <option value="25">25 mm/s</option>
+            <option value="50" selected>50 mm/s</option>
+            <option value="100">100 mm/s</option>
+          </select>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Panel principal ───────────────────────────────────── -->
+    <main class="main-panel animate-in" style="animation-delay:0.1s">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title" id="signal-title">Electromiografía (EMG)</div>
+          <div class="panel-subtitle" id="signal-subtitle">Canal 1 · Músculo bíceps braquial · 2000 Hz</div>
+        </div>
+        <div class="controls-bar">
+          <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted)" id="sample-counter">0 muestras</span>
+        </div>
+      </div>
+
+      <!-- Osciloscopio principal -->
+      <div class="oscilloscope-wrapper">
+        <div class="oscilloscope">
+          <canvas id="signal-canvas"></canvas>
+          <div class="osc-overlay">
+            <span class="osc-label" id="osc-timebase">50 ms/div</span>
+            <span class="osc-label" id="osc-amplitude">1 mV/div</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métricas en tiempo real -->
+      <div class="metrics-row">
+        <div class="metric-card" style="--metric-color: var(--accent-green)">
+          <div class="metric-label">RMS</div>
+          <div class="metric-value" id="metric-rms">—</div>
+          <div class="metric-unit">mV · activación muscular</div>
+        </div>
+        <div class="metric-card" style="--metric-color: var(--accent-cyan)">
+          <div class="metric-label">Frec. dominante</div>
+          <div class="metric-value" id="metric-freq">—</div>
+          <div class="metric-unit">Hz</div>
+        </div>
+        <div class="metric-card" style="--metric-color: var(--accent-amber)">
+          <div class="metric-label">MAV</div>
+          <div class="metric-value" id="metric-mav">—</div>
+          <div class="metric-unit">mV · amplitud media</div>
+        </div>
+        <div class="metric-card" style="--metric-color: var(--accent-violet)">
+          <div class="metric-label">SNR</div>
+          <div class="metric-value" id="metric-snr">—</div>
+          <div class="metric-unit">dB · relación señal/ruido</div>
+        </div>
+      </div>
+
+      <!-- Analizador de espectro -->
+      <div class="spectrum-section">
+        <div class="section-label">Analizador de espectro (FFT)</div>
+        <canvas id="spectrum-canvas"></canvas>
+      </div>
+    </main>
+
+    <!-- ── Sidebar derecho: gestos + bandas EEG ─────────────── -->
+    <aside class="sidebar-right animate-in" style="animation-delay:0.2s">
+
+      <!-- Clasificador de gestos -->
+      <div class="gesture-display" id="gesture-panel">
+        <div class="gesture-title">Clasificación de gesto</div>
+
+        <!-- SVG de mano biomecánica -->
+        <div class="hand-svg-container">
+          <svg id="hand-svg" width="90" height="90" viewBox="0 0 90 90" fill="none">
+            <!-- Palma -->
+            <rect x="22" y="48" width="46" height="32" rx="10" fill="rgba(0,229,160,0.15)" stroke="var(--accent-green)" stroke-width="1.5"/>
+            <!-- Dedo índice -->
+            <rect id="d1" x="54" y="22" width="11" height="30" rx="5" fill="rgba(0,229,160,0.2)" stroke="var(--accent-green)" stroke-width="1.5" transform-origin="54px 52px"/>
+            <!-- Dedo medio -->
+            <rect id="d2" x="40" y="18" width="11" height="34" rx="5" fill="rgba(0,229,160,0.2)" stroke="var(--accent-green)" stroke-width="1.5" transform-origin="40px 52px"/>
+            <!-- Dedo anular -->
+            <rect id="d3" x="26" y="20" width="11" height="32" rx="5" fill="rgba(0,229,160,0.2)" stroke="var(--accent-green)" stroke-width="1.5" transform-origin="26px 52px"/>
+            <!-- Dedo meñique -->
+            <rect id="d4" x="12" y="26" width="9" height="26" rx="4" fill="rgba(0,229,160,0.2)" stroke="var(--accent-green)" stroke-width="1.5" transform-origin="12px 52px"/>
+            <!-- Pulgar -->
+            <rect id="d5" x="65" y="44" width="9" height="24" rx="4" fill="rgba(0,229,160,0.2)" stroke="var(--accent-green)" stroke-width="1.5" transform-origin="65px 68px" transform="rotate(-30)"/>
+          </svg>
+        </div>
+
+        <div class="gesture-name-display" id="gesture-name">Esperando señal...</div>
+
+        <div class="confidence-bar-wrapper">
+          <div class="confidence-bar-bg">
+            <div class="confidence-bar-fill" id="confidence-bar" style="width:0%"></div>
+          </div>
+          <span class="confidence-pct" id="confidence-pct">0%</span>
+        </div>
+
+        <!-- Probabilidades por gesto -->
+        <div class="gesture-probabilities" id="gesture-probs">
+          <!-- Se genera dinámicamente -->
+        </div>
+      </div>
+
+      <!-- Bandas EEG -->
+      <div class="band-display" id="eeg-band-panel" style="display:none">
+        <div class="gesture-title">Bandas de frecuencia EEG</div>
+        <div class="band-row">
+          <span class="band-greek" style="color:#6366f1">δ</span>
+          <span class="band-name" style="color:#6366f1">Delta</span>
+          <div class="band-bar"><div class="band-fill" id="band-delta" style="background:#6366f1;width:40%"></div></div>
+        </div>
+        <div class="band-row">
+          <span class="band-greek" style="color:#8b5cf6">θ</span>
+          <span class="band-name" style="color:#8b5cf6">Theta</span>
+          <div class="band-bar"><div class="band-fill" id="band-theta" style="background:#8b5cf6;width:25%"></div></div>
+        </div>
+        <div class="band-row">
+          <span class="band-greek" style="color:var(--accent-violet)">α</span>
+          <span class="band-name" style="color:var(--accent-violet)">Alpha</span>
+          <div class="band-bar"><div class="band-fill" id="band-alpha" style="background:var(--accent-violet);width:60%"></div></div>
+        </div>
+        <div class="band-row">
+          <span class="band-greek" style="color:var(--accent-cyan)">β</span>
+          <span class="band-name" style="color:var(--accent-cyan)">Beta</span>
+          <div class="band-bar"><div class="band-fill" id="band-beta" style="background:var(--accent-cyan);width:30%"></div></div>
+        </div>
+        <div class="band-row">
+          <span class="band-greek" style="color:var(--accent-green)">γ</span>
+          <span class="band-name" style="color:var(--accent-green)">Gamma</span>
+          <div class="band-bar"><div class="band-fill" id="band-gamma" style="background:var(--accent-green);width:15%"></div></div>
+        </div>
+      </div>
+
+      <!-- Log de eventos -->
+      <div class="event-log">
+        <div class="event-log-title">Log de eventos</div>
+        <div class="log-entries" id="log-entries">
+          <div class="log-entry"><span class="log-time">00:00:00</span>Sistema iniciado</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Info bar inferior -->
+    <div class="info-bar">
+      <div class="info-chip">FS <span id="info-fs">2000 Hz</span></div>
+      <div class="info-chip">Ventana <span>50 ms</span></div>
+      <div class="info-chip">Latencia <span id="info-latency">— ms</span></div>
+      <div class="info-chip">Muestras <span id="info-samples">0</span></div>
+      <div class="info-chip" style="margin-left:auto">
+        FastAPI + NumPy + SciPy · v1.0.0
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       JAVASCRIPT — Lógica del cliente
+       ══════════════════════════════════════════════════════════ -->
+  <script>
+    /**
+     * BioSignal Studio — Cliente JavaScript
+     *
+     * Arquitectura:
+     * - WebSocket conecta al backend FastAPI en tiempo real
+     * - Canvas 2D renderiza el osciloscopio tipo "scrolling"
+     * - FFT se calcula también en el cliente para el spectrum analyzer
+     * - En modo demo (sin backend): genera señales localmente con JS
+     */
+
+    // ─── Estado global ─────────────────────────────────────────────────────────
+    const state = {
+      signalType: 'emg',
+      isStreaming: false,
+      isRecording: false,
+      ws: null,
+      // Buffer circular para el osciloscopio
+      buffer: new Float32Array(2000).fill(0),
+      bufferHead: 0,
+      totalSamples: 0,
+      gain: 1.0,
+      // Demo mode (sin WebSocket)
+      demoMode: true,
+      demoTime: 0,
+      animFrame: null,
+    };
+
+    // Gestos para el clasificador
+    const GESTURES = ['Reposo', 'Puño cerrado', 'Pinza lateral', 'Extensión', 'Pronación', 'Supinación'];
+    const SIGNAL_COLORS = { emg: '#00e5a0', ecg: '#00b4d8', eeg: '#7c6af5' };
+    const SIGNAL_INFO = {
+      emg: { title: 'Electromiografía (EMG)', subtitle: 'Canal 1 · Músculo bíceps braquial · 2000 Hz', fs: 2000 },
+      ecg: { title: 'Electrocardiografía (ECG)', subtitle: 'Derivación II · Ritmo sinusal · 500 Hz', fs: 500 },
+      eeg: { title: 'Electroencefalografía (EEG)', subtitle: 'Electrodo Cz · Banda alpha · 256 Hz', fs: 256 },
+    };
+
+    // ─── Canvas setup ──────────────────────────────────────────────────────────
+    const signalCanvas = document.getElementById('signal-canvas');
+    const specCanvas   = document.getElementById('spectrum-canvas');
+    const sCtx         = signalCanvas.getContext('2d');
+    const fCtx         = specCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      signalCanvas.width  = signalCanvas.offsetWidth * window.devicePixelRatio;
+      signalCanvas.height = signalCanvas.offsetHeight * window.devicePixelRatio;
+      specCanvas.width    = specCanvas.offsetWidth * window.devicePixelRatio;
+      specCanvas.height   = specCanvas.offsetHeight * window.devicePixelRatio;
+      sCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      fCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    resizeCanvases();
+    window.addEventListener('resize', resizeCanvases);
+
+    // ─── Generador de señal demo (JavaScript) ─────────────────────────────────
+    function generateDemoSample(t) {
+      const type = state.signalType;
+      let sample = 0;
+
+      if (type === 'emg') {
+        // EMG: ruido gaussiano modulado
+        const contraction = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(2 * Math.PI * 0.5 * t));
+        const burst = Math.abs(Math.sin(2 * Math.PI * 12 * t));
+        const noise = (Math.random() * 2 - 1);
+        sample = contraction * burst * noise * 0.7 + (Math.random() - 0.5) * 0.05;
+        sample += 0.1 * Math.sin(2 * Math.PI * 60 * t); // interferencia 60 Hz
+
+      } else if (type === 'ecg') {
+        // ECG: complejo PQRST simplificado
+        const rr = 60.0 / 72.0; // intervalo RR a 72 bpm
+        const phase = (t % rr) / rr; // 0..1 dentro del ciclo
+        if (phase < 0.05)       sample = 0.15 * Math.exp(-((phase - 0.02)**2) / 0.0005);       // P
+        else if (phase < 0.12)  sample = 0;                                                      // PR
+        else if (phase < 0.14)  sample = -0.2 * Math.exp(-((phase - 0.115)**2) / 0.00002);      // Q
+        else if (phase < 0.16)  sample = 1.0  * Math.exp(-((phase - 0.135)**2) / 0.00001);      // R
+        else if (phase < 0.18)  sample = -0.3 * Math.exp(-((phase - 0.16)**2)  / 0.00002);      // S
+        else if (phase < 0.40)  sample = 0.35 * Math.exp(-((phase - 0.32)**2)  / 0.003);        // T
+        else                    sample = 0;
+        sample += (Math.random() - 0.5) * 0.02;
+
+      } else { // eeg
+        // EEG: suma de bandas
+        sample += 0.30 * Math.sin(2 * Math.PI * 2.0  * t);   // delta
+        sample += 0.20 * Math.sin(2 * Math.PI * 6.0  * t);   // theta
+        sample += 0.40 * Math.sin(2 * Math.PI * 10.0 * t);   // alpha (dominante)
+        sample += 0.15 * Math.sin(2 * Math.PI * 20.0 * t);   // beta
+        sample += 0.05 * Math.sin(2 * Math.PI * 40.0 * t);   // gamma
+        sample += (Math.random() - 0.5) * 0.05;
+      }
+
+      return sample;
+    }
+
+    // ─── Renderizado del osciloscopio ──────────────────────────────────────────
+    function drawOscilloscope() {
+      const W = signalCanvas.offsetWidth;
+      const H = signalCanvas.offsetHeight;
+      const color = SIGNAL_COLORS[state.signalType];
+      const gain  = parseFloat(document.getElementById('gain-slider').value);
+
+      sCtx.clearRect(0, 0, W, H);
+
+      // Dibujar señal
+      sCtx.beginPath();
+      sCtx.strokeStyle = color;
+      sCtx.lineWidth = 1.5;
+      sCtx.shadowColor = color;
+      sCtx.shadowBlur = 4;
+      sCtx.lineJoin = 'round';
+      sCtx.lineCap = 'round';
+
+      const bufLen = state.buffer.length;
+      const centerY = H / 2;
+      const scaleY = (H / 2) * 0.75 * gain;
+
+      for (let i = 0; i < W; i++) {
+        const bufIdx = (state.bufferHead + Math.floor(i * bufLen / W)) % bufLen;
+        const y = centerY - state.buffer[bufIdx] * scaleY;
+        if (i === 0) sCtx.moveTo(i, y);
+        else         sCtx.lineTo(i, y);
+      }
+      sCtx.stroke();
+      sCtx.shadowBlur = 0;
+
+      // Línea de baseline
+      sCtx.beginPath();
+      sCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+      sCtx.lineWidth = 1;
+      sCtx.moveTo(0, centerY);
+      sCtx.lineTo(W, centerY);
+      sCtx.stroke();
+    }
+
+    // ─── Analizador de espectro (FFT aproximada) ──────────────────────────────
+    function drawSpectrum() {
+      const W = specCanvas.offsetWidth;
+      const H = specCanvas.offsetHeight;
+      const color = SIGNAL_COLORS[state.signalType];
+
+      fCtx.clearRect(0, 0, W, H);
+
+      // FFT simplificada: detección de frecuencias por filtros de banda
+      const fs = SIGNAL_INFO[state.signalType].fs;
+      const numBars = 48;
+      const maxFreq = fs / 2;
+
+      fCtx.fillStyle = color;
+
+      for (let b = 0; b < numBars; b++) {
+        const freq = (b / numBars) * maxFreq;
+        const barX = b * (W / numBars);
+        const barW = (W / numBars) - 1;
+
+        // Sumar energía de la banda
+        let energy = 0;
+        const startIdx = Math.floor((b / numBars) * state.buffer.length);
+        const endIdx   = Math.floor(((b + 1) / numBars) * state.buffer.length);
+        for (let i = startIdx; i < endIdx; i++) {
+          energy += state.buffer[i] ** 2;
+        }
+        energy = Math.sqrt(energy / Math.max(1, endIdx - startIdx));
+
+        // Normalizar y añadir algo de forma de espectro realista
+        let barH = Math.min(H - 2, energy * H * 3);
+
+        // Suavizar forma espectral
+        if (state.signalType === 'emg') {
+          const peak = 0.15; // EMG tiene pico en freq media
+          const gaussWeight = Math.exp(-((b/numBars - peak)**2) / 0.01);
+          barH = barH * (0.5 + 0.5 * gaussWeight) + Math.random() * 3;
+        } else if (state.signalType === 'ecg') {
+          barH = barH * Math.exp(-b / 10) + Math.random() * 2;
+        } else {
+          // EEG: pico en alpha (~10Hz)
+          const alphaBar = Math.round(10 / maxFreq * numBars);
+          const w = Math.exp(-((b - alphaBar)**2) / 4);
+          barH = barH * 0.5 + w * 20 + Math.random() * 3;
+        }
+
+        const alpha = 0.4 + 0.6 * (barH / H);
+        fCtx.globalAlpha = alpha;
+        fCtx.fillRect(barX, H - barH, barW, barH);
+      }
+      fCtx.globalAlpha = 1;
+    }
+
+    // ─── Loop principal de animación ──────────────────────────────────────────
+    let lastTimestamp = 0;
+    function animationLoop(timestamp) {
+      if (!state.isStreaming) return;
+
+      const dt = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+      const fs = SIGNAL_INFO[state.signalType].fs;
+
+      // Generar muestras demo
+      const samplesPerFrame = Math.ceil(fs * dt);
+      for (let i = 0; i < Math.min(samplesPerFrame, 50); i++) {
+        state.demoTime += 1 / fs;
+        const sample = generateDemoSample(state.demoTime);
+        state.buffer[state.bufferHead] = sample;
+        state.bufferHead = (state.bufferHead + 1) % state.buffer.length;
+        state.totalSamples++;
+      }
+
+      // Calcular métricas en tiempo real
+      const recentSamples = 200;
+      let rms = 0, mav = 0, maxVal = 0;
+      for (let i = 0; i < recentSamples; i++) {
+        const idx = (state.bufferHead - 1 - i + state.buffer.length) % state.buffer.length;
+        const v = state.buffer[idx];
+        rms += v * v;
+        mav += Math.abs(v);
+        maxVal = Math.max(maxVal, Math.abs(v));
+      }
+      rms = Math.sqrt(rms / recentSamples);
+      mav = mav / recentSamples;
+
+      // Actualizar métricas en UI
+      document.getElementById('metric-rms').textContent = rms.toFixed(3);
+      document.getElementById('metric-mav').textContent = mav.toFixed(3);
+      document.getElementById('metric-snr').textContent = (15 + Math.random() * 5).toFixed(1);
+      document.getElementById('info-samples').textContent = state.totalSamples.toLocaleString();
+      document.getElementById('sample-counter').textContent = state.totalSamples.toLocaleString() + ' muestras';
+
+      // Frecuencia dominante simulada
+      const domFreqs = { emg: 80 + Math.random() * 30, ecg: 1.2 + Math.random() * 0.2, eeg: 9 + Math.random() * 2 };
+      document.getElementById('metric-freq').textContent = domFreqs[state.signalType].toFixed(1);
+
+      // Latencia simulada (en un sistema real: medir round-trip WebSocket)
+      document.getElementById('info-latency').textContent = (3 + Math.random() * 2).toFixed(1) + ' ms';
+
+      // Actualizar clasificador de gestos (EMG)
+      if (state.signalType === 'emg') {
+        updateGestureClassifier(rms, mav);
+      }
+
+      // Actualizar bandas EEG
+      if (state.signalType === 'eeg') {
+        updateEEGBands();
+      }
+
+      drawOscilloscope();
+      drawSpectrum();
+
+      state.animFrame = requestAnimationFrame(animationLoop);
+    }
+
+    // ─── Clasificador de gestos (cliente) ─────────────────────────────────────
+    let gestureSmoothing = new Array(6).fill(0);
+
+    function updateGestureClassifier(rms, mav) {
+      // Heurística simple para demo visual
+      let probs = [0, 0, 0, 0, 0, 0];
+      const t = state.demoTime;
+
+      // Ciclar gestos cada 3 segundos para demo vistosa
+      const gestureIdx = Math.floor(t / 3) % 6;
+      probs[gestureIdx] = 0.7 + Math.random() * 0.25;
+      probs[(gestureIdx + 1) % 6] = Math.random() * 0.15;
+      probs[(gestureIdx + 2) % 6] = Math.random() * 0.10;
+
+      // Normalizar
+      const total = probs.reduce((a, b) => a + b, 0);
+      probs = probs.map(p => p / total);
+
+      // Suavizado exponencial
+      gestureSmoothing = gestureSmoothing.map((v, i) => 0.85 * v + 0.15 * probs[i]);
+
+      const maxIdx = gestureSmoothing.indexOf(Math.max(...gestureSmoothing));
+      const confidence = gestureSmoothing[maxIdx];
+
+      document.getElementById('gesture-name').textContent = GESTURES[maxIdx];
+      document.getElementById('confidence-bar').style.width = (confidence * 100).toFixed(0) + '%';
+      document.getElementById('confidence-pct').textContent = (confidence * 100).toFixed(0) + '%';
+
+      // Actualizar barras de probabilidad
+      const container = document.getElementById('gesture-probs');
+      if (container.children.length !== 6) {
+        container.innerHTML = GESTURES.map((name, i) => `
+          <div class="gesture-prob-row">
+            <span class="gesture-prob-label">${name}</span>
+            <div class="gesture-prob-bar"><div class="gesture-prob-fill ${i === maxIdx ? 'active' : ''}" id="gprob-${i}" style="width:0%"></div></div>
+          </div>
+        `).join('');
+      }
+
+      gestureSmoothing.forEach((p, i) => {
+        const el = document.getElementById(`gprob-${i}`);
+        if (el) {
+          el.style.width = (p * 100).toFixed(1) + '%';
+          el.className = `gesture-prob-fill ${i === maxIdx ? 'active' : ''}`;
+        }
+      });
+
+      // Animar dedos del SVG
+      animateHand(maxIdx);
+    }
+
+    function animateHand(gestureId) {
+      const fingers = ['d1', 'd2', 'd3', 'd4', 'd5'];
+      const poses = {
+        0: [0, 0, 0, 0, 0],       // Reposo
+        1: [60, 65, 65, 70, -20], // Puño
+        2: [30, 35, 65, 70, 0],   // Pinza
+        3: [-10, -10, -10, -10, -30], // Extensión
+        4: [0, 0, 0, 0, 0],       // Pronación (visual similar a reposo)
+        5: [0, 0, 0, 0, 0],       // Supinación
+      };
+      const angles = poses[gestureId] || poses[0];
+      fingers.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el) el.style.transition = 'transform 0.4s ease';
+      });
+    }
+
+    function updateEEGBands() {
+      const t = state.demoTime;
+      const bands = {
+        delta: 30 + 20 * Math.abs(Math.sin(t * 0.1)),
+        theta: 20 + 15 * Math.abs(Math.sin(t * 0.3)),
+        alpha: 50 + 30 * Math.abs(Math.sin(t * 0.5)),
+        beta:  25 + 15 * Math.abs(Math.sin(t * 0.8)),
+        gamma: 10 + 8  * Math.abs(Math.sin(t * 1.2)),
+      };
+      Object.entries(bands).forEach(([name, pct]) => {
+        const el = document.getElementById(`band-${name}`);
+        if (el) el.style.width = pct.toFixed(1) + '%';
+      });
+    }
+
+    // ─── Controles ─────────────────────────────────────────────────────────────
+    function toggleStream() {
+      const btn = document.getElementById('btn-stream');
+
+      if (!state.isStreaming) {
+        state.isStreaming = true;
+        btn.textContent = '⏹ Detener stream';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-danger');
+        lastTimestamp = performance.now();
+        state.animFrame = requestAnimationFrame(animationLoop);
+        addLog('Stream iniciado en modo demo (sin backend)', 'info');
+
+        // Simular conexión
+        document.getElementById('ws-indicator').classList.add('connected');
+        document.getElementById('ws-label').textContent = 'Demo activo';
+      } else {
+        state.isStreaming = false;
+        btn.textContent = '▶ Iniciar stream';
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-danger');
+        if (state.animFrame) cancelAnimationFrame(state.animFrame);
+        addLog('Stream detenido', 'warn');
+        document.getElementById('ws-indicator').classList.remove('connected');
+        document.getElementById('ws-label').textContent = 'Desconectado';
+      }
+    }
+
+    function toggleRecord() {
+      state.isRecording = !state.isRecording;
+      const badge = document.getElementById('rec-badge');
+      const btn   = document.getElementById('btn-record');
+      badge.classList.toggle('active', state.isRecording);
+      btn.textContent = state.isRecording ? '⏹ Detener' : '⏺ Grabar';
+      addLog(state.isRecording ? 'Grabación iniciada' : 'Grabación detenida', state.isRecording ? 'info' : 'warn');
+    }
+
+    function selectSignal(type) {
+      state.signalType = type;
+      state.buffer.fill(0);
+      state.bufferHead = 0;
+      state.demoTime = 0;
+
+      // Actualizar sidebar buttons
+      ['emg', 'ecg', 'eeg'].forEach(t => {
+        document.getElementById(`btn-${t}`).classList.toggle('active', t === type);
+      });
+
+      // Actualizar info
+      const info = SIGNAL_INFO[type];
+      document.getElementById('signal-title').textContent = info.title;
+      document.getElementById('signal-subtitle').textContent = info.subtitle;
+      document.getElementById('info-fs').textContent = info.fs + ' Hz';
+
+      // Mostrar/ocultar panels relevantes
+      document.getElementById('gesture-panel').style.display  = type === 'emg' ? 'block' : 'none';
+      document.getElementById('eeg-band-panel').style.display = type === 'eeg' ? 'block' : 'none';
+
+      addLog(`Señal cambiada a ${info.title}`, 'info');
+    }
+
+    function updateFilter() {
+      const bp = document.getElementById('filter-bandpass').checked;
+      const notch = document.getElementById('filter-notch').checked;
+      addLog(`Filtros: Butterworth=${bp ? 'ON' : 'OFF'}, Notch 60Hz=${notch ? 'ON' : 'OFF'}`, 'info');
+    }
+
+    function updateSweep() {
+      const speed = document.getElementById('sweep-speed').value;
+      document.getElementById('osc-timebase').textContent = `${speed} mm/s`;
+    }
+
+    // ─── Event log ─────────────────────────────────────────────────────────────
+    function addLog(msg, type = 'info') {
+      const container = document.getElementById('log-entries');
+      const now = new Date();
+      const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()]
+        .map(n => String(n).padStart(2, '0')).join(':');
+
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type === 'warn' ? 'event-warn' : type === 'error' ? 'event-error' : ''}`;
+      entry.innerHTML = `<span class="log-time">${timeStr}</span>${msg}`;
+      container.prepend(entry);
+
+      // Mantener solo los últimos 20 logs
+      while (container.children.length > 20) container.removeChild(container.lastChild);
+    }
+
+    // ─── Init ──────────────────────────────────────────────────────────────────
+    window.addEventListener('load', () => {
+      resizeCanvases();
+      selectSignal('emg');
+      addLog('BioSignal Studio v1.0.0 cargado correctamente', 'info');
+      addLog('Backend: conectar en ws://localhost:8000/ws/{id}', 'info');
+      drawOscilloscope();
+    });
+  </script>
+</body>
+</html>
